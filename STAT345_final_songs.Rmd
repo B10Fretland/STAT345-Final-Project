@@ -4,6 +4,9 @@ author: "STAT 345"
 output: html_document
 ---
 
+
+My name is brayden
+
 Expected Submission: You will generate a well-written R Markdown report that addresses the following prompts. This R Markdown report should source your analysis code and only display top-level, abstracted code _if/when appropriate_. Choices made during the analysis project should be described and justified in the report. 
 
 
