@@ -4,9 +4,6 @@ author: "STAT 345"
 output: html_document
 ---
 
-
-My name is brayden
-
 Expected Submission: You will generate a well-written R Markdown report that addresses the following prompts. This R Markdown report should source your analysis code and only display top-level, abstracted code _if/when appropriate_. Choices made during the analysis project should be described and justified in the report. 
 
 
@@ -31,3 +28,90 @@ Advice for getting started:
 5. Have songs become more repetitive over time? Summarize and visualize your repetitive measures from part 4. 
 
 6. (If possible) Extend your work to more songs! Consider more questions, like "Does genre matter?".
+
+##Load Libraries
+
+```{r}
+library(tidyverse)
+library(knitr)
+library(rvest)
+```
+
+
+##Collect Top Songs via Scraping
+
+```{r}
+##Scrape Wikipedia as it is easier? https://en.wikipedia.org/wiki/Billboard_Year-End_Hot_100_singles_of_2020
+
+#Only for 2020.
+url <- "https://en.wikipedia.org/wiki/Billboard_Year-End_Hot_100_singles_of_2020"
+
+page <- read_html(url)
+
+#Extracts table
+songs_2020 <- page %>%
+  html_nodes("table") %>%
+  .[[1]] %>%
+  html_table()
+
+#Cleans data
+songs_2020 <- songs_2020 %>%
+  select(Title, `Artist(s)`) %>%
+  rename(title = Title, artist = `Artist(s)`) %>%
+  mutate(year = 2020)
+
+#Views results
+head(songs_2020)
+```
+
+
+##Gather Data About the Top Songs (Artist, year, title, genre,...)
+
+```{r}
+
+```
+
+
+##Scrape lyrics from Song (Function that scrapes songs from Collect top songs)
+
+```{r}
+
+```
+
+
+##Apply the lyrics Scrape function to top songs
+
+```{r}
+
+```
+
+
+##Create Repetiveness Functions to Measure Repetiveness
+
+```{r}
+##Function 1: same phrase frequently
+```
+
+```{r}
+##Function 2: repetition of song title:(May not do one of these)
+```
+
+
+##Apply Repetiveness Functions
+
+```{r}
+
+```
+
+
+##Visualization using bar graph or another type to show repetition score
+
+```{r}
+
+```
+
+##Interpretation of Graph(Summary):
+- ...
+
+
+##Make sure to adjust to make this work for more songs than just the top ones. Also question if genre matters.
