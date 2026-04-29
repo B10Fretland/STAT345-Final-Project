@@ -37,16 +37,6 @@ library(knitr)
 library(rvest) # Web scraping tools.
 ```
 
-```{r}
-## TEST SELECTOR (temporary)
-
-page <- read_html(songs$url[6])
-
-page %>%
-  html_nodes("table.infobox tr:nth-child(10) td, table.infobox tr:nth-child(9) td") %>%
-  html_text(trim = TRUE)
-```
-
 ##Collect Top Songs via Scraping
 
 ```{r}
@@ -55,7 +45,7 @@ page %>%
 #Still have to add more songs not just the top song from each year
 
 
-#Function to get the url for each year to get the top song from each year from Wiki.
+#Function to get the url for each year to get the top song from each year from Wiki. Input is year which is the year from the billboard hot 100 list. Output is tibble with title, artist, year, url from 1958 to 2025 of top 20 songs each year.
 SongYear <- function(year) {
 
 #Adjust the url to each year of top 100.
@@ -67,7 +57,7 @@ page <- read_html(url)
 # Used CSS selector to extract all tables on page.
 # Uses first table as it is the top 100 list.
 table <- page %>% 
-  html_nodes("table") %>% #Grabs all tables
+  html_nodes("table.wikitable") %>% #Grabs all tables
   .[[1]] #Selects first table.
 
 # Turns HTML table to data frame.
@@ -76,27 +66,28 @@ songs <- table %>%
 
 #Cleans and format data to get artist and title.
 songs <- songs %>%
-  select(Title, `Artist(s)`) %>% #Keeps title and artist columns
-  rename(title = Title, artist = `Artist(s)`) %>% #Renames cols.
-  slice(1) %>% #Keeps top song only for now.
+  select(2, 3) %>% #Keeps title and artist columns.
+  rename(title = 1, artist = 2) %>% #Renames cols.
+  slice(1:20) %>% #Grabs all 20 songs.
   mutate(year = year) %>% #Adds year of song as a col.
-  mutate(title = str_replace_all(title, '"', ""))
+  mutate(title = str_replace_all(title, '"', "")) #Gets rid of quotation marks around the titles.
 
 # Used CSS selector to find links to song titles which are in the second column and go to a hyper link.
 # Used to extract song wiki page for more details, genre, lenght, etc.
 links <- table %>% 
   html_nodes("td:nth-child(2) a") %>% #CSS selector for the title column link, a is used to get the clickable song link.
-  html_attr("href") #Gets the hyperlink.
+  html_attr("href") %>%  #Gets the hyperlink.
+  url_absolute(url) # Update!!!
 
 # Convert links into full urls by combining them with the song url pages.
-#links[1] makes sure it uses the first link.
-songs$url <- paste0("https://en.wikipedia.org", links[1])
+#links[1:20] makes sure it grabs top 20 links.
+songs$url <-links[1:20]
 
 return(songs)
 }
 
 #Views results by calling the function.
-songs <- map_dfr(2020:2025, SongYear)
+songs <- map_dfr(1958:2025, SongYear)
 
 songs
 ```
@@ -106,7 +97,7 @@ songs
 
 ```{r}
 
-#Function to scrape genre and song length from songs wiki url.
+#Function to scrape genre and song length from songs wiki url. Input is url which is the url of each songs wiki page. Output is a tibble that adds the genre and length to the other columns about each song.
 song_info <- function(url) {
   
   #Reads each websites HTML content.
@@ -122,7 +113,7 @@ song_info <- function(url) {
   # td makes it so we collect the data in the genre.
   genre <- rows %>%
     keep(~ str_detect(html_text(.x), regex("Genre", ignore_case = TRUE))) %>%
-    html_node("td") %>% #Extracts value column of what the genre actually is.
+    html_node("td") %>% 
     html_text(trim = TRUE) %>%
     .[1] %>% #Makes it so it is a single first value
     str_replace_all("\n",", ") %>%
@@ -177,6 +168,37 @@ songs
 
 ```{r}
 #Function 2: repetition of song title:(May not do one of these)
+
+#Function to measure how repetitive the songs are by seeing how often the title is said in the song. Input is lyrics and title which is the song lyrics and song title. Output is a repetition score which is from 0 to 1 with 1 being very repetitive.
+title_repetitiveness <- function(lyrics, title) {
+  
+  # Convert all words to lowercase.
+  lyrics <- tolower(lyrics)
+  title <- tolower(title)
+  
+  # Remove punctuation from all lyrics.
+  lyrics <- str_replace_all(lyrics, "[[:punct:]]", "")
+  title <- str_replace_all(title, "[[:punct:]]", "")
+  
+  #Squish lyrics and title together to help avoid large spaces.
+  lyrics <- str_squish(lyrics)
+  title <- str_squish(title)
+  
+  # Regex pattern for multi word titles
+  # \b is so there are boundaries and we match the phrase correctly.
+  pattern <- paste0("\\b", str_replace_all(title, "\\s+", "\\\\s+"), "\\b")
+  
+  # Count total words
+  total_words <- str_count(lyrics, "\\S+")
+  
+  # Count how many times title appears
+  title_count <- str_count(lyrics, regex(pattern))
+  
+  # Normalize by length of song
+  repetition_score <- title_count / total_words
+  
+  return(repetition_score)
+}
 ```
 
 
