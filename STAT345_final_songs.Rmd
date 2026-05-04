@@ -149,7 +149,62 @@ songs
 ##Scrape lyrics from Song (Function that scrapes songs from Collect top songs)
 
 ```{r}
+#for 2020
+## Scrape lyrics from SongLyrics
 
+library(tidyverse)
+library(rvest)
+library(stringr)
+library(purrr)
+
+make_songlyrics_slug <- function(x) {
+  x %>%
+    str_to_lower() %>% #converting all to lowercase
+    str_replace_all(" featuring.*", "") %>% #removing features that can mess up the data and get N/A
+    str_replace_all(" feat\\..*", "") %>% #same as last, removing feat.
+    str_replace_all("&", "and") %>% #replacing the & sign with the word "and"
+    str_replace_all("[^a-z0-9 ]", "") %>% #only selecting letters, number, and spaces. Nothing extra.
+    str_squish() %>% #avoiding extra spaces that can come up in the proces.
+    str_replace_all(" ", "-") #hypens for names that have spaces in them for the website.
+}
+
+songs <- songs %>%
+  mutate(
+    artist_slug = make_songlyrics_slug(artist),
+    title_slug = make_songlyrics_slug(title),
+    lyrics_url = paste0(
+      "https://www.songlyrics.com/",
+      artist_slug,
+      "/",
+      title_slug,
+      "-lyrics/"
+    )
+  )
+
+songs %>%
+  select(title, artist, lyrics_url) %>%
+  head()
+get_lyrics <- function(url) {
+  tryCatch({
+    page <- read_html(url)
+    
+    lyrics <- page %>%
+      html_node("#songLyricsDiv") %>%
+      html_text2()
+    
+    return(lyrics)
+    
+  }, error = function(e) {
+    return(NA_character_)
+  })
+}
+songs <- songs %>%
+  mutate(
+    lyrics = map_chr(lyrics_url, get_lyrics)
+  )
+
+songs %>%
+  select(title, artist, lyrics)
 ```
 
 
