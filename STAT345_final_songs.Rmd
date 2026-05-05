@@ -164,6 +164,36 @@ songs
 
 ```{r}
 #Function 1: same phrase frequently
+
+#Need to make better so it doesnt contain words like "I, The, A, You".
+
+#Function to measure how repetitive the songs are by seeing how often the specific words are said in the song. Input is lyrics which is the song lyrics. Output is a repetition score which is from 0 to 1 with 1 being very repetitive.
+word_repetitiveness <- function(lyrics) {
+  
+  #Convert all words to lowercase.
+  #Remove punctuation from all lyrics.
+  #...
+  lyrics <- tolower(lyrics)
+  lyrics <- str_replace_all(lyrics, "[[:punct:]]", "")
+  words <- unlist(str_split(lyrics, "\\s+"))
+  
+  #Removes empty strings.
+  words <- words[words != ""]
+  
+  #If no words, return NA.
+  if(length(words) == 0) return(NA)
+  
+  #Total of all words.
+  word_counts <- table(words)
+  
+  #Gets proportion of top 5 most common words...
+  top_counts <- sort(word_counts, decreasing = TRUE)[1:min(5, length(word_counts))]
+  
+  #...
+  repetition_score <- sum(top_counts) / length(words)
+  
+  return(repetition_score)
+}
 ```
 
 ```{r}
@@ -172,7 +202,7 @@ songs
 #Function to measure how repetitive the songs are by seeing how often the title is said in the song. Input is lyrics and title which is the song lyrics and song title. Output is a repetition score which is from 0 to 1 with 1 being very repetitive.
 title_repetitiveness <- function(lyrics, title) {
   
-  # Convert all words to lowercase.
+  #Convert all words to lowercase.
   lyrics <- tolower(lyrics)
   title <- tolower(title)
   
@@ -190,6 +220,9 @@ title_repetitiveness <- function(lyrics, title) {
   
   # Count total words
   total_words <- str_count(lyrics, "\\S+")
+  
+  #If no words, return NA.
+  if(total_words == 0) return(NA)
   
   # Count how many times title appears
   title_count <- str_count(lyrics, regex(pattern))
