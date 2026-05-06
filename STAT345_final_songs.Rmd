@@ -35,61 +35,66 @@ Advice for getting started:
 library(tidyverse)
 library(knitr)
 library(rvest) # Web scraping tools.
+library(stringr)
+library(purrr)
+
 ```
 
 ##Collect Top Songs via Scraping
 
 ```{r}
+
 ##Scrape Wikipedia as it is easier? https://en.wikipedia.org/wiki/Billboard_Year-End_Hot_100_singles_of_2025
 
-#Still have to add more songs not just the top song from each year
+# Still have to add more songs not just the top song from each year
 
 
-#Function to get the url for each year to get the top song from each year from Wiki. Input is year which is the year from the billboard hot 100 list. Output is tibble with title, artist, year, url from 1958 to 2025 of top 20 songs each year.
+# Function to get the url for each year to get the top song from each year from Wiki. Input is year which is the year from the billboard hot 100 list. Output is tibble with title, artist, year, url from 1958 to 2025 of top 20 songs each year.
 SongYear <- function(year) {
 
-#Adjust the url to each year of top 100.
+# Adjust the url to each year of top 100.
 url <- paste0("https://en.wikipedia.org/wiki/Billboard_Year-End_Hot_100_singles_of_", year)
 
-#Reads each website html content.
+# Reads each website html content.
 page <- read_html(url) 
 
 # Used CSS selector to extract all tables on page.
 # Uses first table as it is the top 100 list.
 table <- page %>% 
-  html_nodes("table.wikitable") %>% #Grabs all tables
-  .[[1]] #Selects first table.
+  html_nodes("table.wikitable") %>% # Grabs all tables
+  .[[1]] # Selects first table.
 
 # Turns HTML table to data frame.
 songs <- table %>%
     html_table() 
 
-#Cleans and format data to get artist and title.
+# Cleans and format data to get artist and title.
 songs <- songs %>%
-  select(2, 3) %>% #Keeps title and artist columns.
-  rename(title = 1, artist = 2) %>% #Renames cols.
-  slice(1:20) %>% #Grabs all 20 songs.
-  mutate(year = year) %>% #Adds year of song as a col.
-  mutate(title = str_replace_all(title, '"', "")) #Gets rid of quotation marks around the titles.
+  select(2, 3) %>% # Keeps title and artist columns.
+  rename(title = 1, artist = 2) %>% # Renames cols.
+  slice(1:2) %>% # Grabs all 2 songs.
+  mutate(year = year) %>% # Adds year of song as a col.
+  mutate(title = str_replace_all(title, '"', "")) # Gets rid of quotation marks around the titles.
 
 # Used CSS selector to find links to song titles which are in the second column and go to a hyper link.
-# Used to extract song wiki page for more details, genre, lenght, etc.
+# Used to extract song wiki page for more details, genre, length, etc.
 links <- table %>% 
-  html_nodes("td:nth-child(2) a") %>% #CSS selector for the title column link, a is used to get the clickable song link.
-  html_attr("href") %>%  #Gets the hyperlink.
-  url_absolute(url) # Update!!!
+  html_nodes("td:nth-child(2) a") %>% # CSS selector for the title column link, a is used to get the clickable song link.
+  html_attr("href") %>%  # Gets the hyperlink.
+  url_absolute(url) # Converts URL to full URL.
 
 # Convert links into full urls by combining them with the song url pages.
-#links[1:20] makes sure it grabs top 20 links.
-songs$url <-links[1:20]
+# links[1:20] makes sure it grabs top 20 links.
+songs$url <-links[1:2]
 
 return(songs)
 }
 
-#Views results by calling the function.
-songs <- map_dfr(1958:2025, SongYear)
+# Views results by calling the function.
+songs_base <- map_dfr(2000:2025, SongYear)
 
-songs
+songs_base
+
 ```
 
 
@@ -97,17 +102,17 @@ songs
 
 ```{r}
 
-#Function to scrape genre and song length from songs wiki url. Input is url which is the url of each songs wiki page. Output is a tibble that adds the genre and length to the other columns about each song.
+# Function to scrape genre and song length from songs wiki url. Input is url which is the url of each songs wiki page. Output is a tibble that adds the genre and length to the other columns about each song.
 song_info <- function(url) {
   
-  #Reads each websites HTML content.
+  # Reads each websites HTML content.
   page <- read_html(url)
   
   # Use CSS selector to find infobox on the songs that contain info on the genres and lenght, etc. TR grabs table row for the data.
   rows <- page %>%
     html_nodes("table.infobox tr")
   
-  # Extract genre (find row containing "Genre")
+  # Extract genre (find row containing "Genre").
   # keep() makes it so it only keeps the rows that contain word genre.
   # Converts each row into text to see if it contains Genre.
   # td makes it so we collect the data in the genre.
@@ -115,7 +120,7 @@ song_info <- function(url) {
     keep(~ str_detect(html_text(.x), regex("Genre", ignore_case = TRUE))) %>%
     html_node("td") %>% 
     html_text(trim = TRUE) %>%
-    .[1] %>% #Makes it so it is a single first value
+    .[1] %>% # Makes it so it is a single first value.
     str_replace_all("\n",", ") %>%
     str_squish() %>%
     str_replace_all("\\[\\d+\\]", "")
@@ -127,22 +132,23 @@ song_info <- function(url) {
     html_text(trim = TRUE) %>%
     .[1]
   
-  # Makes it time format
+  # Makes it time format.
   song_length <- str_extract(song_length, "\\d+:\\d+")
   
-  #Returns results as a tibble(data frame)
+  # Returns results as a tibble(data frame).
   tibble(
-    genre = ifelse(length(genre) == 0, NA, genre), #Deals with missing parts
+    genre = ifelse(length(genre) == 0, NA, genre), # Deals with missing parts.
     length = ifelse(length(song_length) == 0, NA, song_length))
 }
 
-#Apply functions to each song.
-song_details <- map_dfr(songs$url, song_info)
+# Apply functions to each song.
+song_parts <- map_dfr(songs_base$url, song_info)
 
-#Combines original song data with new details.
-songs <- bind_cols(songs, song_details)
+# Combines original song data with new details.
+songs_updated <- bind_cols(songs_base, song_parts)
 
-songs
+songs_updated
+
 ```
 
 
@@ -151,11 +157,6 @@ songs
 ```{r}
 #for 2020
 ## Scrape lyrics from SongLyrics
-
-library(tidyverse)
-library(rvest)
-library(stringr)
-library(purrr)
 
 make_songlyrics_slug <- function(x) {
   x %>%
@@ -168,22 +169,6 @@ make_songlyrics_slug <- function(x) {
     str_replace_all(" ", "-") #hypens for names that have spaces in them for the website.
 }
 
-songs <- songs %>%
-  mutate(
-    artist_slug = make_songlyrics_slug(artist),
-    title_slug = make_songlyrics_slug(title),
-    lyrics_url = paste0(
-      "https://www.songlyrics.com/",
-      artist_slug,
-      "/",
-      title_slug,
-      "-lyrics/"
-    )
-  )
-
-songs %>%
-  select(title, artist, lyrics_url) %>%
-  head()
 get_lyrics <- function(url) {
   tryCatch({
     page <- read_html(url)
@@ -198,13 +183,7 @@ get_lyrics <- function(url) {
     return(NA_character_)
   })
 }
-songs <- songs %>%
-  mutate(
-    lyrics = map_chr(lyrics_url, get_lyrics)
-  )
 
-songs %>%
-  select(title, artist, lyrics)
 ```
 
 
@@ -212,39 +191,56 @@ songs %>%
 
 ```{r}
 
+songs_lyrics <- songs_updated %>%
+  mutate(
+    artist_slug = make_songlyrics_slug(artist),
+    title_slug = make_songlyrics_slug(title),
+    lyrics_url = paste0(
+      "https://www.songlyrics.com/",
+      artist_slug,
+      "/",
+      title_slug,
+      "-lyrics/"
+    )
+  ) %>%
+  mutate(
+    lyrics = map_chr(lyrics_url, get_lyrics)
+  ) %>%
+  select(title, year, artist_slug, title_slug, lyrics_url, lyrics)
+
 ```
 
 
 ##Create Repetiveness Functions to Measure Repetiveness
 
 ```{r}
-#Function 1: same phrase frequently
+# Function 1: same word frequency:
 
-#Need to make better so it doesnt contain words like "I, The, A, You".
+# Need to make better so it doesn't contain words like "I, The, A, You".
 
-#Function to measure how repetitive the songs are by seeing how often the specific words are said in the song. Input is lyrics which is the song lyrics. Output is a repetition score which is from 0 to 1 with 1 being very repetitive.
+# Function to measure how repetitive the songs are by seeing how often the specific words are said in the song. Input is lyrics which is the song lyrics. Output is a repetition score which is from 0 to 1 with 1 being very repetitive.
 word_repetitiveness <- function(lyrics) {
   
-  #Convert all words to lowercase.
-  #Remove punctuation from all lyrics.
-  #...
+  # Convert all words to lowercase.
+  # Remove punctuation from all lyrics.
+  # Split the new text into individual words based on spaces.
   lyrics <- tolower(lyrics)
   lyrics <- str_replace_all(lyrics, "[[:punct:]]", "")
   words <- unlist(str_split(lyrics, "\\s+"))
   
-  #Removes empty strings.
+  # Removes empty strings.
   words <- words[words != ""]
   
-  #If no words, return NA.
+  # If no words, return NA.
   if(length(words) == 0) return(NA)
   
-  #Total of all words.
+  # Total of all words.
   word_counts <- table(words)
   
-  #Gets proportion of top 5 most common words...
+  # Gets proportion of top 5 most common words.
   top_counts <- sort(word_counts, decreasing = TRUE)[1:min(5, length(word_counts))]
   
-  #...
+  # Measure of how repetitive the words of the song is.
   repetition_score <- sum(top_counts) / length(words)
   
   return(repetition_score)
@@ -252,12 +248,13 @@ word_repetitiveness <- function(lyrics) {
 ```
 
 ```{r}
-#Function 2: repetition of song title:(May not do one of these)
 
-#Function to measure how repetitive the songs are by seeing how often the title is said in the song. Input is lyrics and title which is the song lyrics and song title. Output is a repetition score which is from 0 to 1 with 1 being very repetitive.
+# Function 2: repetition of song title:
+
+# Function to measure how repetitive the songs are by seeing how often the title is said in the song. Input is lyrics and title which is the song lyrics and song title. Output is a repetition score which is from 0 to 1 with 1 being very repetitive.
 title_repetitiveness <- function(lyrics, title) {
   
-  #Convert all words to lowercase.
+  # Convert all words to lowercase.
   lyrics <- tolower(lyrics)
   title <- tolower(title)
   
@@ -265,7 +262,7 @@ title_repetitiveness <- function(lyrics, title) {
   lyrics <- str_replace_all(lyrics, "[[:punct:]]", "")
   title <- str_replace_all(title, "[[:punct:]]", "")
   
-  #Squish lyrics and title together to help avoid large spaces.
+  # Squish lyrics and title together to help avoid large spaces.
   lyrics <- str_squish(lyrics)
   title <- str_squish(title)
   
@@ -273,16 +270,16 @@ title_repetitiveness <- function(lyrics, title) {
   # \b is so there are boundaries and we match the phrase correctly.
   pattern <- paste0("\\b", str_replace_all(title, "\\s+", "\\\\s+"), "\\b")
   
-  # Count total words
+  # Count total words.
   total_words <- str_count(lyrics, "\\S+")
   
   #If no words, return NA.
   if(total_words == 0) return(NA)
   
-  # Count how many times title appears
+  # Count how many times title appears.
   title_count <- str_count(lyrics, regex(pattern))
   
-  # Normalize by length of song
+  # Normalize by length of song, to measure how repetitive the song title is in the song.
   repetition_score <- title_count / total_words
   
   return(repetition_score)
@@ -294,12 +291,41 @@ title_repetitiveness <- function(lyrics, title) {
 
 ```{r}
 
+# First checks if song lyrics are valid from table.
+songs_clean <- songs_lyrics %>%
+  mutate(
+    lyrics = ifelse(is.na(lyrics), "", lyrics))
+
+# Applies functions to the lyrics to see how repetitive the songs are. Then adds the two functions together and divides by two to combine the two scores into one.
+songs_score <- songs_clean %>%
+  mutate(
+    word_rep = map_dbl(lyrics, word_repetitiveness),
+    title_rep = map2_dbl(lyrics, title, title_repetitiveness),
+    avg_rep = (word_rep + title_rep)/2)
+
+# Combines the songs repetitiveness scores of each year to compare the change in repetitiveness over time.
+songs_summary <- songs_score %>%
+  group_by(year) %>%
+  summarize(
+    avg_rep_year = mean(avg_rep, na.rm = TRUE))
+
 ```
 
 
 ##Visualization using bar graph or another type to show repetition score
 
 ```{r}
+
+#Graph to display how song repetitiveness has changed over the years.
+ggplot(songs_summary, aes(x=year, y= avg_rep_year)) +
+  geom_line(alpha=.5) +
+  geom_point() +
+  labs(
+    title = "Average Song Reptitiveness Over Time",
+    x = "Year",
+    y = "Average Reptitiveness Score"
+  ) +
+  theme_minimal()
 
 ```
 
@@ -308,3 +334,5 @@ title_repetitiveness <- function(lyrics, title) {
 
 
 ##Make sure to adjust to make this work for more songs than just the top ones. Also question if genre matters.
+
+##Ask how many songs per year, and if we should go back to 1958. Also ask about the connection thing only going up to 128 and the lyrics start failing. 
