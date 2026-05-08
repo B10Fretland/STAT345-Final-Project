@@ -1,6 +1,6 @@
 ---
 title: "STAT 345 Final Project - Over and Over and Over and Over"
-author: "STAT 345"
+author: "Brayden Fretland & Zander Hauser"
 output: html_document
 ---
 
@@ -44,11 +44,6 @@ library(purrr)
 
 ```{r}
 
-##Scrape Wikipedia as it is easier? https://en.wikipedia.org/wiki/Billboard_Year-End_Hot_100_singles_of_2025
-
-# Still have to add more songs not just the top song from each year
-
-
 # Function to get the url for each year to get the top song from each year from Wiki. Input is year which is the year from the billboard hot 100 list. Output is tibble with title, artist, year, url from 1958 to 2025 of top 20 songs each year.
 SongYear <- function(year) {
 
@@ -72,7 +67,7 @@ songs <- table %>%
 songs <- songs %>%
   select(2, 3) %>% # Keeps title and artist columns.
   rename(title = 1, artist = 2) %>% # Renames cols.
-  slice(1:2) %>% # Grabs all 2 songs.
+  slice(1:10) %>% # Grabs top 10 songs.
   mutate(year = year) %>% # Adds year of song as a col.
   mutate(title = str_replace_all(title, '"', "")) # Gets rid of quotation marks around the titles.
 
@@ -84,14 +79,14 @@ links <- table %>%
   url_absolute(url) # Converts URL to full URL.
 
 # Convert links into full urls by combining them with the song url pages.
-# links[1:20] makes sure it grabs top 20 links.
-songs$url <-links[1:2]
+# links[1:10] makes sure it grabs top 10 links.
+songs$url <-links[1:10]
 
 return(songs)
 }
 
 # Views results by calling the function.
-songs_base <- map_dfr(2000:2025, SongYear)
+songs_base <- map_dfr(1958:2025, SongYear)
 
 songs_base
 
@@ -155,9 +150,8 @@ songs_updated
 ##Scrape lyrics from Song (Function that scrapes songs from Collect top songs)
 
 ```{r}
-#for 2020
-## Scrape lyrics from SongLyrics
-
+# Scrape lyrics from SongLyrics
+# Explain function, inputs, and outputs.
 make_songlyrics_slug <- function(x) {
   x %>%
     str_to_lower() %>% #converting all to lowercase
@@ -166,24 +160,41 @@ make_songlyrics_slug <- function(x) {
     str_replace_all("&", "and") %>% #replacing the & sign with the word "and"
     str_replace_all("[^a-z0-9 ]", "") %>% #only selecting letters, number, and spaces. Nothing extra.
     str_squish() %>% #avoiding extra spaces that can come up in the proces.
-    str_replace_all(" ", "-") #hypens for names that have spaces in them for the website.
+    str_replace_all(" ", "-")  #hypens for names that have spaces in them for the website.
 }
 
+# Safe scraper function
+# Explain function, inputs, and outputs.
 get_lyrics <- function(url) {
   tryCatch({
+    Sys.sleep(runif(1, 1, 2))  # Prevents blocking by adding a delay to reduce risk of being blocked by website. By using 1 to 2 it doesn't use consistency to avoid being blocked.
     page <- read_html(url)
     
-    lyrics <- page %>%
-      html_node("#songLyricsDiv") %>%
-      html_text2()
+    node <- page %>% html_node("#songLyricsDiv")
+    
+    # If lyrics section doesn't exist it returns a NA.
+    if (is.null(node) || length(node) == 0) {
+      closeAllConnections()
+      gc() # Get rid of unused temporary data from scraping.
+      return(NA_character_)
+    }
+    
+    lyrics <- node %>%
+      html_text2() %>%
+      str_squish()
+    
+    closeAllConnections()
+    gc() # Get rid of unused temporary data from scraping.
     
     return(lyrics)
     
   }, error = function(e) {
+    
+    closeAllConnections()
+    gc() # Get rid of unused temporary data from scraping.
     return(NA_character_)
   })
 }
-
 ```
 
 
@@ -191,6 +202,7 @@ get_lyrics <- function(url) {
 
 ```{r}
 
+# Applies the lyrics Scrape function to all songs.
 songs_lyrics <- songs_updated %>%
   mutate(
     artist_slug = make_songlyrics_slug(artist),
@@ -201,15 +213,15 @@ songs_lyrics <- songs_updated %>%
       "/",
       title_slug,
       "-lyrics/"
-    )
-  ) %>%
-  mutate(
-    lyrics = map_chr(lyrics_url, get_lyrics)
-  ) %>%
+    ),
+    # Scrapes lyrics from each URL using function.
+    lyrics = map_chr(lyrics_url, get_lyrics)) %>%
+  
+  # Keeps relevant columns for analysis.
   select(title, year, artist_slug, title_slug, lyrics_url, lyrics)
 
+songs_lyrics
 ```
-
 
 ##Create Repetiveness Functions to Measure Repetiveness
 
@@ -318,7 +330,7 @@ songs_summary <- songs_score %>%
 
 #Graph to display how song repetitiveness has changed over the years.
 ggplot(songs_summary, aes(x=year, y= avg_rep_year)) +
-  geom_line(alpha=.5) +
+  geom_line(alpha=.8) +
   geom_point() +
   labs(
     title = "Average Song Reptitiveness Over Time",
@@ -333,6 +345,3 @@ ggplot(songs_summary, aes(x=year, y= avg_rep_year)) +
 - ...
 
 
-##Make sure to adjust to make this work for more songs than just the top ones. Also question if genre matters.
-
-##Ask how many songs per year, and if we should go back to 1958. Also ask about the connection thing only going up to 128 and the lyrics start failing. 
