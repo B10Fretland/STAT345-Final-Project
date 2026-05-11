@@ -29,7 +29,7 @@ Advice for getting started:
 
 6. (If possible) Extend your work to more songs! Consider more questions, like "Does genre matter?".
 
-##Load Libraries
+##Load Libraries: 
 
 ```{r}
 library(tidyverse)
@@ -40,7 +40,8 @@ library(purrr)
 
 ```
 
-##Collect Top Songs via Scraping
+##Collect Top Songs via Scraping: 
+# Collects the top 10 songs from each year since 1958 till now and grabs the song title, artist, year, and url.
 
 ```{r}
 
@@ -93,7 +94,8 @@ songs_base
 ```
 
 
-##Gather Data About the Top Songs (Artist, year, title, genre,...)
+##Gather Data About the Top Songs:
+# Collects the individual songs genre and song length by going into each songs website individually.
 
 ```{r}
 
@@ -147,11 +149,12 @@ songs_updated
 ```
 
 
-##Scrape lyrics from Song (Function that scrapes songs from Collect top songs)
+##Scrape lyrics from Song (Function that scrapes songs from Collect top songs):
+# Creates a function to scrape all the lyrics from SongLyrics and adjust for formatting.
 
 ```{r}
-# Scrape lyrics from SongLyrics
-# Explain function, inputs, and outputs.
+
+# Function to convert song title and artist into a format that matches the URL on SongLyrics. Input is x which is a charcter string containing an artist or song title. Output is the cleaned formatted songlyrics url.
 make_songlyrics_slug <- function(x) {
   x %>%
     str_to_lower() %>% #converting all to lowercase
@@ -163,14 +166,14 @@ make_songlyrics_slug <- function(x) {
     str_replace_all(" ", "-")  #hypens for names that have spaces in them for the website.
 }
 
-# Safe scraper function
-# Explain function, inputs, and outputs.
+# Function to scrape lyrics from url. Input is url which is the link to the song lyrics web. Output is the lyrics.
 get_lyrics <- function(url) {
   tryCatch({
-    Sys.sleep(runif(1, 1, 2))  # Prevents blocking by adding a delay to reduce risk of being blocked by website. By using 1 to 2 it doesn't use consistency to avoid being blocked.
-    page <- read_html(url)
+    Sys.sleep(1)  # Prevents blocking by adding a delay to reduce risk of being blocked by website. By using 1 to 2 it doesn't use consistency to avoid being blocked.
     
-    node <- page %>% html_node("#songLyricsDiv")
+    page <- read_html(url) # Reads HTML content.
+    
+    node <- page %>% html_node("#songLyricsDiv") # Location in HTML of lyrics.
     
     # If lyrics section doesn't exist it returns a NA.
     if (is.null(node) || length(node) == 0) {
@@ -179,7 +182,7 @@ get_lyrics <- function(url) {
       return(NA_character_)
     }
     
-    lyrics <- node %>%
+    lyrics <- node %>% # Extracts lyrics.
       html_text2() %>%
       str_squish()
     
@@ -188,7 +191,7 @@ get_lyrics <- function(url) {
     
     return(lyrics)
     
-  }, error = function(e) {
+  }, error = function(e) { # If any errors occur it close connection and returns NA.
     
     closeAllConnections()
     gc() # Get rid of unused temporary data from scraping.
@@ -198,7 +201,8 @@ get_lyrics <- function(url) {
 ```
 
 
-##Apply the lyrics Scrape function to top songs
+##Apply the lyrics Scrape function to top songs:
+# Applies the function to get each songs lyrics.
 
 ```{r}
 
@@ -223,7 +227,8 @@ songs_lyrics <- songs_updated %>%
 songs_lyrics
 ```
 
-##Create Repetiveness Functions to Measure Repetiveness
+##Create Repetiveness Functions to Measure Repetiveness:
+# Made two repetiveness functions to measure how repetiveness each song is based off the how common words are frequently said, and how often the song title is said in the song.
 
 ```{r}
 # Function 1: same word frequency:
@@ -299,7 +304,8 @@ title_repetitiveness <- function(lyrics, title) {
 ```
 
 
-##Apply Repetiveness Functions
+##Apply Repetiveness Functions:
+# Applies the two repetiveness functions to find the repetivness of each song from a scale of 0 to 1 which 1 being very repetitive. It adds the two functions and divides by two to average the two measures out.
 
 ```{r}
 
@@ -324,11 +330,11 @@ songs_summary <- songs_score %>%
 ```
 
 
-##Visualization using bar graph or another type to show repetition score
+##Visualization to show repetition score:
 
 ```{r}
 
-#Graph to display how song repetitiveness has changed over the years.
+# Graph to display how song repetitiveness has changed over the years.
 ggplot(songs_summary, aes(x=year, y= avg_rep_year)) +
   geom_line(alpha=.8) +
   geom_point() +
@@ -342,6 +348,4 @@ ggplot(songs_summary, aes(x=year, y= avg_rep_year)) +
 ```
 
 ##Interpretation of Graph(Summary):
-- ...
-
-
+- The average repetition score that we see on the y axis of the graph is the average of our title repetition score and our top 5 word repetition score. When looking at our graph, we see a gradual decline in repetition score over time. In 1958, the score was about a .36 and in the final years of our graph, it is around .10. From this, we can make the claim that songs have become less repetitive over time. Artists are not saying the title of the song in the song as much as they used to. Also, artists are not repeating the same words throughout the song nearly as much as they used to. From the 1960s to the 1990s, we see the repetition score stay somewhat constant in the .15 to .22 range. From 1990 and on, we see that score start to dip below the .15 score. In the time range from the 70s to 80s we see a lot of fluctuation in the score. This tells us that there is a diverse mix of repetitive hit songs and also non repetitive songs. As we entered the 2000s we notice a steady decline in song repetition, that seems to continue as the years pass. We can make the claim that modern songs seem to use more unique lines and a wider vocabulary than older songs. Newer songs seem to be using less simple and catchy song choruses that are repeated many teams throughout the songs.
